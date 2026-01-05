@@ -58,9 +58,3 @@ fn main(
     let computed_nullifier = poseidon2::Poseidon2::hash([secret, verifier_key], 2);
     assert(computed_nullifier == nullifier, "Nullifier mismatch");
 }
-
-// Helper function to compute empty leaf value (used for tree initialization)
-fn get_zero_value() -> Field {
-    // Empty leaf is hash of zero
-    poseidon2::Poseidon2::hash([0], 1)
-}
