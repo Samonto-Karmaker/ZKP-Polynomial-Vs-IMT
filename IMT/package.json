@@ -1,0 +1,17 @@
+{
+    "name": "b2b-membership-imt",
+    "version": "1.0.0",
+    "description": "Incremental Merkle Tree membership verification for B2B ZKP",
+    "dependencies": {
+        "@zkpassport/poseidon2": "^0.6.2"
+    },
+    "devDependencies": {
+        "@types/node": "^20.19.27",
+        "ts-node": "^10.9.0",
+        "typescript": "^5.0.0"
+    },
+    "scripts": {
+        "test:tree": "npx ts-node utils/merkle_tree.ts",
+        "generate": "node utils/test_data_generator.js"
+    }
+}

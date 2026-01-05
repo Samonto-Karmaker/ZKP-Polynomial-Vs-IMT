@@ -1,0 +1,18 @@
+# Node.js
+node_modules/
+
+# Build outputs
+target/
+out/
+dist/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

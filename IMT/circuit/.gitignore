@@ -1,0 +1,8 @@
+# Noir build artifacts
+target/
+
+# Proof outputs
+out/
+
+# IDE
+.vscode/
