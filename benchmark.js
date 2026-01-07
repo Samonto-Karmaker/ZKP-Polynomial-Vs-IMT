@@ -7,23 +7,25 @@ const { spawnSync } = require("child_process")
 const imtHelper = require("./IMT/utils/benchmark_imt_helper")
 const polyHelper = require("./polynomial/utils/benchmark_poly_helper")
 
+// Argument parsing
+const args = process.argv.slice(2)
+const isDryRun = args.includes("--dry-run")
+
 // --- Configuration ---
 const USER_COUNTS = [128, 256, 512, 1024, 2048, 4096, 8192, 16384]
+const specificCount = args.find((a) => a.startsWith("--count="))?.split("=")[1]
+const TARGET_COUNTS = specificCount ? [parseInt(specificCount)] : USER_COUNTS
 const SAMPLE_SIZE = 5 // Randomly sample 5 users for timing
-const IMT_CSV_FILE = "imt_results.csv"
-const POLY_CSV_FILE = "polynomial_results.csv"
+// Output Handling
+const suffix = isDryRun ? "_dryrun.csv" : ".csv"
+const IMT_CSV_FILE = `imt_results${suffix}`
+const POLY_CSV_FILE = `polynomial_results${suffix}`
 const USERS_DB_FILE = "users.csv"
 
 // Fixed test config
 const VERIFIER_KEY = "benchmark_vk_123"
 const FIELD_PRIME =
     21888242871839275222246405745257275088548364400416034343698204186575808495617n
-
-// Argument parsing
-const args = process.argv.slice(2)
-const isDryRun = args.includes("--dry-run")
-const specificCount = args.find((a) => a.startsWith("--count="))?.split("=")[1]
-const TARGET_COUNTS = specificCount ? [parseInt(specificCount)] : USER_COUNTS
 
 // State management
 let IMT_TREE = null
@@ -180,7 +182,7 @@ async function runBenchmark() {
 
         // Storage Measurement
         const imtCsv = imtHelper.serializeIMTtoCSV(IMT_TREE)
-        const imtStorageFile = `imt_storage_${count}.csv`
+        const imtStorageFile = "temp_imt_storage.csv"
         fs.writeFileSync(imtStorageFile, imtCsv)
         const imtStorageSize = getFileSize(imtStorageFile)
 
@@ -203,8 +205,8 @@ async function runBenchmark() {
         // Storage Measurement
         const polyCoeffsCsv = polyHelper.serializePolynomialToCSV(POLY_BATCHES)
         const polyMapCsv = polyHelper.serializeUserBatchMapToCSV(POLY_USER_MAP)
-        const polyStorageFile = `polynomial_storage_${count}.csv`
-        const polyMapFile = `polynomial_map_${count}.csv`
+        const polyStorageFile = "temp_poly_storage.csv"
+        const polyMapFile = "temp_poly_map.csv"
         fs.writeFileSync(polyStorageFile, polyCoeffsCsv)
         fs.writeFileSync(polyMapFile, polyMapCsv)
         const polyStorageSize =
@@ -261,7 +263,7 @@ async function runBenchmark() {
             IMT_CSV_FILE,
             count,
             metricsIMT,
-            getDirSize("./IMT/circuit/target/vk"),
+            getFileSize("./IMT/circuit/target/vk"),
             totalPopulationTimeIMT,
             imtStorageSize
         )
@@ -269,7 +271,7 @@ async function runBenchmark() {
             POLY_CSV_FILE,
             count,
             metricsPoly,
-            getDirSize("./polynomial/circuit/target/vk"),
+            getFileSize("./polynomial/circuit/target/vk"),
             totalPopulationTimePoly,
             polyStorageSize
         )
