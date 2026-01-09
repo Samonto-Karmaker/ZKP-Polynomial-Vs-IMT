@@ -12,7 +12,11 @@ const args = process.argv.slice(2)
 const isDryRun = args.includes("--dry-run")
 
 // --- Configuration ---
-const USER_COUNTS = [128, 256, 512, 1024, 2048, 4096, 8192, 16384]
+// 2^7 to 2^20
+const USER_COUNTS = [
+    128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144,
+    524288, 1048576,
+]
 const specificCount = args.find((a) => a.startsWith("--count="))?.split("=")[1]
 const TARGET_COUNTS = specificCount ? [parseInt(specificCount)] : USER_COUNTS
 const SAMPLE_SIZE = 5 // Randomly sample 5 users for timing
