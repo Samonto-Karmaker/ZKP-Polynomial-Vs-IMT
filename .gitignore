@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+
+# Data
+users.csv
+*.csv
+!imt_results.csv
+!polynomial_results.csv
+
+# Build artifacts
+target/
+dist/

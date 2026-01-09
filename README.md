@@ -50,7 +50,3 @@ The benchmarks measure and record the following metrics in the CSV results files
 -   **Proof Size**: Size of the generated proof in bytes.
 -   **Storage/Population Time**: Time taken to update the data structure (Tree or Batches) with new users.
 -   **Storage Size**: Structure size (e.g., coefficients or tree nodes) serialized to disk.
-
-## Note on Data
-
-> **Note regarding `users.csv`**: This file contains the dataset of users (email, secrets, salts) used in the experiments. Please be aware that `users.csv` is not pushed to version control beyond a certain user count as the file became too large to be efficiently managed in git. The benchmark script will generate this file locally as needed.
