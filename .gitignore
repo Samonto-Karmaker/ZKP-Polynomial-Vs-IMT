@@ -9,6 +9,7 @@ users.csv
 *.csv
 !imt_results.csv
 !polynomial_results.csv
+!circuit_complexity.csv
 
 # Build artifacts
 target/
