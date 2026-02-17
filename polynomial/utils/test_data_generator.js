@@ -106,12 +106,21 @@ async function generateTestData() {
     const polynomial = interpolatePolynomial(testRoots)
     console.log(`Polynomial degree: ${polynomial.length - 1}`)
 
-    // 3. Pad polynomial to MAX_POLY_DEGREE (must match main.nr)
+    // 3. Pad polynomial to MAX_POLY_DEGREE
     const MAX_POLY_DEGREE = 128
+    const CIRCUIT_POLY_LENGTH = MAX_POLY_DEGREE + 1 // 129 coefficients
+
+    // The polynomial from interpolation is always monic (leading coeff = 1)
+    // We keep the leading 1 in the array — the circuit evaluates all coefficients directly
+    if (polynomial[polynomial.length - 1] !== 1n) {
+        throw new Error("Polynomial is not monic!")
+    }
+
     const paddedPolynomial = [...polynomial]
-    while (paddedPolynomial.length <= MAX_POLY_DEGREE) paddedPolynomial.push(0n)
+    while (paddedPolynomial.length < CIRCUIT_POLY_LENGTH)
+        paddedPolynomial.push(0n)
     const validatedPolynomial = paddedPolynomial.map((coeff) =>
-        toPositiveField(coeff)
+        toPositiveField(coeff),
     )
 
     // 4. Generate REAL polynomial hash using Poseidon2
@@ -160,7 +169,7 @@ async function validateCircuitInputs(testData) {
 
     const evaluation = testPolynomialEvaluation(
         testData.polynomial,
-        testData.secret
+        testData.secret,
     )
     console.log(`✓ Polynomial evaluation at secret: ${evaluation}`)
     console.log(`✓ Secret is valid root: ${evaluation === 0n ? "✅" : "❌"}`)
@@ -177,7 +186,7 @@ async function validateCircuitInputs(testData) {
     console.log(`✓ Nullifier consistency: ${nullifierMatch ? "✅" : "❌"}`)
 
     const allInField = testData.polynomial.every(
-        (coeff) => coeff < FIELD_PRIME && coeff >= 0n
+        (coeff) => coeff < FIELD_PRIME && coeff >= 0n,
     )
     console.log(`✓ All coefficients in field: ${allInField ? "✅" : "❌"}`)
 
@@ -188,7 +197,7 @@ async function validateCircuitInputs(testData) {
 if (require.main === module) {
     ;(async () => {
         console.log(
-            "🚀 Starting ZKP test data generation (using Poseidon2)...\n"
+            "🚀 Starting ZKP test data generation (using Poseidon2)...\n",
         )
         try {
             const testData = await generateTestData()
@@ -206,7 +215,7 @@ if (require.main === module) {
             console.log("\n📊 Test Summary:")
             console.log(`- Secret: ${testData.secret}`)
             console.log(
-                `- Polynomial degree: ${testData.polynomial.length - 1}`
+                `- Polynomial degree: ${testData.polynomial.length - 1}`,
             )
             console.log(`- Polynomial hash: ${testData.polynomialHash}`)
             console.log(`- Nullifier: ${testData.nullifier}`)

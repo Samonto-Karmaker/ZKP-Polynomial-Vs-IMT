@@ -5,6 +5,9 @@ export const bn_254_fp =
 // Maximum polynomial degree (must match main.nr)
 export const MAX_POLY_DEGREE = 128
 
+// Circuit array size: MAX_POLY_DEGREE + 1 = 129 coefficients (c_0 through c_128)
+export const CIRCUIT_POLY_LENGTH = MAX_POLY_DEGREE + 1
+
 export const initial_polynomial = [1n] // Represents the polynomial P(x) = 1
 
 // returns an array of coefficients that represent an polynomial, P where P(roots[i]) = 0
@@ -15,7 +18,7 @@ export function interpolatePolynomial(roots: bigint[]): bigint[] {
 
     for (const root of roots) {
         const newPolynomial: bigint[] = new Array(polynomial.length + 1).fill(
-            0n
+            0n,
         )
 
         // Multiply by (x - root)
@@ -49,7 +52,7 @@ export function addRoot(oldPoly: bigint[], newRoot: bigint): bigint[] {
 
 export function removeRoot(
     oldPoly: bigint[],
-    rootToRemove: bigint
+    rootToRemove: bigint,
 ): bigint[] | null {
     const n = oldPoly.length - 1
     if (n <= 0) throw new Error("Polynomial degree too low")
@@ -75,7 +78,7 @@ export function removeRoot(
 // Verify the polynomial works correctly
 export function verifyPolynomial(
     coefficients: bigint[],
-    root: bigint
+    root: bigint,
 ): boolean {
     let result = 0n
     let rootPower = 1n
@@ -86,6 +89,33 @@ export function verifyPolynomial(
     }
 
     return result === 0n
+}
+
+// Validates that a polynomial is monic (leading coefficient = 1n)
+export function assertMonic(poly: bigint[]): void {
+    if (poly.length === 0) throw new Error("Empty polynomial")
+    const leadingCoeff = poly[poly.length - 1]
+    if (leadingCoeff !== 1n) {
+        throw new Error(
+            `Polynomial is not monic: leading coefficient is ${leadingCoeff}, expected 1`,
+        )
+    }
+}
+
+// Converts a polynomial to circuit-ready coefficients:
+// 1. Asserts the polynomial is monic
+// 2. Pads with zeros to exactly CIRCUIT_POLY_LENGTH (129) elements
+// The leading 1n is kept as part of the array (circuit evaluates all coefficients directly)
+export function toCircuitCoeffs(poly: bigint[]): bigint[] {
+    assertMonic(poly)
+    if (poly.length > CIRCUIT_POLY_LENGTH) {
+        throw new Error(
+            `Polynomial degree ${poly.length - 1} exceeds MAX_POLY_DEGREE ${MAX_POLY_DEGREE}`,
+        )
+    }
+    const padded = [...poly]
+    while (padded.length < CIRCUIT_POLY_LENGTH) padded.push(0n)
+    return padded
 }
 
 // Enhanced test function that includes removeRoot testing
@@ -117,14 +147,14 @@ export function testPolynomial() {
     console.log(`Adding root ${newRoot} to polynomial`)
     console.log("New polynomial coefficients:", newPoly)
     console.log(
-        `Degree changed from ${poly.length - 1} to ${newPoly.length - 1}`
+        `Degree changed from ${poly.length - 1} to ${newPoly.length - 1}`,
     )
 
     // Verify all roots including the new one
     for (const root of [...roots, newRoot]) {
         const isValid = verifyPolynomial(newPoly, root)
         console.log(
-            `  Root ${root} valid in new polynomial: ${isValid ? "✅" : "❌"}`
+            `  Root ${root} valid in new polynomial: ${isValid ? "✅" : "❌"}`,
         )
     }
 
@@ -132,7 +162,7 @@ export function testPolynomial() {
     console.log(
         `  Non-root 5 valid in new polynomial: ${
             nonRootValidNewPoly ? "❌ PROBLEM" : "✅"
-        }`
+        }`,
     )
 
     // 3. Test removeRoot function
@@ -150,7 +180,7 @@ export function testPolynomial() {
 
     console.log("Reduced polynomial coefficients:", reducedPoly)
     console.log(
-        `Degree changed from ${newPoly.length - 1} to ${reducedPoly.length - 1}`
+        `Degree changed from ${newPoly.length - 1} to ${reducedPoly.length - 1}`,
     )
 
     // Verify remaining roots still work
@@ -167,7 +197,7 @@ export function testPolynomial() {
     console.log(
         `  Removed root ${rootToRemove} still valid: ${
             removedRootStillValid ? "❌ PROBLEM" : "✅"
-        }`
+        }`,
     )
 
     // 4. Test removing invalid root
@@ -225,7 +255,7 @@ export function testPolynomial() {
         console.log(
             `Result is constant ${removedSingle[0]} (should be constant): ${
                 removedSingle.length === 1 ? "✅" : "❌"
-            }`
+            }`,
         )
     }
 
@@ -237,7 +267,7 @@ export function testPolynomial() {
     } catch (error) {
         console.log(
             "✅ Correctly threw error for constant polynomial:",
-            (error as Error).message
+            (error as Error).message,
         )
     }
 

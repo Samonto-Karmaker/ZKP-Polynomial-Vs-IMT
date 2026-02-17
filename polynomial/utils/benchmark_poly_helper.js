@@ -1,8 +1,5 @@
 // polynomial/utils/benchmark_poly_helper.js
-const {
-    realPoseidon2Hash,
-    FIELD_PRIME,
-} = require("./test_data_generator")
+const { realPoseidon2Hash, FIELD_PRIME } = require("./test_data_generator")
 
 // Helper to keep numbers in the field
 const mod = (x, f = FIELD_PRIME) => {
@@ -36,6 +33,7 @@ function addRoot(oldPoly, newRoot) {
 
 // Global constant matching circuit
 const MAX_POLY_DEGREE = 128
+const CIRCUIT_POLY_LENGTH = MAX_POLY_DEGREE + 1 // 129 coefficients
 
 /**
  * Adds new secrets to existing batches or creates new batches.
@@ -48,7 +46,7 @@ function addSecretsToBatches(
     batches = [],
     batchRoots = [],
     userMap = new Map(),
-    newSecrets
+    newSecrets,
 ) {
     // Deep copy to avoid mutating inputs directly if passed by reference
     const currentBatches = [...batches]
@@ -129,9 +127,14 @@ function serializeUserBatchMapToCSV(userMap) {
  * Generates Prover.toml for a specific user and their batch
  */
 function generateProverToml(batchPoly, secret, verifierKey) {
-    // Pad polynomial to MAX_POLY_DEGREE
+    // Validate monic: leading coefficient must be 1n
+    if (batchPoly[batchPoly.length - 1] !== 1n) {
+        throw new Error("Polynomial is not monic!")
+    }
+
+    // Pad polynomial to CIRCUIT_POLY_LENGTH (129) — keep leading 1 in array
     const paddedPoly = [...batchPoly]
-    while (paddedPoly.length <= MAX_POLY_DEGREE) paddedPoly.push(0n)
+    while (paddedPoly.length < CIRCUIT_POLY_LENGTH) paddedPoly.push(0n)
 
     // Hash polynomial
     const polynomialHash = realPoseidon2Hash(paddedPoly)
