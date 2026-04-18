@@ -8,19 +8,19 @@ This system uses polynomial-based zero-knowledge proofs to verify organizational
 
 ### Key Features
 
--   **Zero-Knowledge Membership Verification**: Prove membership without revealing identity
--   **KYC Integration**: Enforce compliance requirements through cryptographic proofs
--   **Verification Caching**: Nullifiers enable efficient re-verification by caching previous results
--   **Polynomial-Based Security**: Mathematically sound membership verification using polynomial roots
--   **Scalable Batching**: Support unlimited members through independent polynomial batches
--   **On-Chain Verification**: Decentralized proof verification with smart contract integration
+- **Zero-Knowledge Membership Verification**: Prove membership without revealing identity
+- **KYC Integration**: Enforce compliance requirements through cryptographic proofs
+- **Verification Caching**: Nullifiers enable efficient re-verification by caching previous results
+- **Polynomial-Based Security**: Mathematically sound membership verification using Poseidon2(secret) roots
+- **Scalable Batching**: Support unlimited members through independent polynomial batches
+- **On-Chain Verification**: Decentralized proof verification with smart contract integration
 
 ## 🏗️ Technical Architecture
 
 ### Core Components
 
-1. **Polynomial Generation**: Organizations generate polynomials where member secrets are roots
-2. **Batch Management**: Members are organized into batches of up to 2047 users per polynomial
+1. **Polynomial Generation**: Organizations generate polynomials where Poseidon2(secret) values are roots
+2. **Batch Management**: Members are organized into batches of up to 128 users per polynomial
 3. **Hash Commitment**: Polynomial hashes are published on-chain for integrity verification
 4. **ZK Circuit**: Noir-based circuit for generating membership proofs
 5. **Nullifier System**: Enables efficient verification caching to avoid redundant proof checks
@@ -28,11 +28,11 @@ This system uses polynomial-based zero-knowledge proofs to verify organizational
 
 ### Cryptographic Primitives
 
--   **Hash Function**: Poseidon2 for efficient zk-SNARK operations
--   **Polynomial Evaluation**: Efficient computation up to degree 2047 per batch
--   **Batch Scaling**: Independent polynomial equations for unlimited membership growth
--   **Nullifier Generation**: Deterministic verification cache identifiers
--   **Commitment Scheme**: Hash-based polynomial commitments
+- **Hash Function**: Poseidon2 for efficient zk-SNARK operations
+- **Polynomial Evaluation**: Efficient computation up to degree 128 per batch
+- **Batch Scaling**: Independent polynomial equations for unlimited membership growth
+- **Nullifier Generation**: Deterministic verification cache identifiers from Poseidon2(Poseidon2(secret), verifier_key)
+- **Commitment Scheme**: Hash-based polynomial commitments
 
 ## 🚀 Scalability Architecture
 
@@ -40,17 +40,17 @@ This system uses polynomial-based zero-knowledge proofs to verify organizational
 
 The system overcomes the 128-user polynomial degree limit through intelligent batching:
 
--   **Batch Size**: Each batch supports up to 128 members
--   **Independent Polynomials**: Each batch has its own polynomial equation
--   **Unlimited Growth**: Organizations can create multiple batches as needed
--   **Batch Identification**: Users are assigned to specific batches during registration
+- **Batch Size**: Each batch supports up to 128 members
+- **Independent Polynomials**: Each batch has its own polynomial equation
+- **Unlimited Growth**: Organizations can create multiple batches as needed
+- **Batch Identification**: Users are assigned to specific batches during registration
 
 ### Scaling Benefits
 
--   **Linear Scalability**: Add new batches without affecting existing ones
--   **Proof Efficiency**: Each proof only requires the user's specific batch polynomial
--   **Storage Optimization**: Only relevant batch data needed for verification
--   **Parallel Processing**: Multiple batches can be processed independently
+- **Linear Scalability**: Add new batches without affecting existing ones
+- **Proof Efficiency**: Each proof only requires the user's specific batch polynomial
+- **Storage Optimization**: Only relevant batch data needed for verification
+- **Parallel Processing**: Multiple batches can be processed independently
 
 ## 📋 System Workflow
 
@@ -71,10 +71,11 @@ flowchart TD
 ```mermaid
 flowchart TD
     A[Start: Add User to Organization] --> B[Generate Secret = hash -> user_email + salt]
-    B --> C[Insert User into Batch]
-    C --> D[Create/Update Batch Equation]
-    D --> E[Emit On-chain Event with Batch Info + Polynomial Hash]
-    E --> F[End]
+    B --> C[Derive Batch Root = poseidon2 -> secret]
+    C --> D[Insert Root into Batch]
+    D --> E[Create/Update Batch Equation]
+    E --> F[Emit On-chain Event with Batch Info + Polynomial Hash]
+    F --> G[End]
 ```
 
 **Note**: The batching system automatically handles scalability - when a batch reaches 128 members, new users are placed into a new batch with its own independent polynomial equation. This allows organizations to support unlimited members while maintaining efficient proof generation.
@@ -85,44 +86,45 @@ flowchart TD
 flowchart TD
     S[Start] --> A[Get Verifier Key + User Info]
     A --> B[Generate Secret = hash -> user_email + salt]
-    B --> C[Generate Nullifier = hash -> secret + verifier key]
-    C --> D[Fetch Latest Equation for User]
-    D --> E[Fetch Latest Equation Hash from On-chain Events]
-    E --> F[Generate Proof]
+    B --> C[Derive hashed_secret = poseidon2 -> secret]
+    C --> D[Generate Nullifier = hash -> hashed_secret + verifier key]
+    D --> E[Fetch Latest Equation for User]
+    E --> F[Fetch Latest Equation Hash from On-chain Events]
+    F --> G[Generate Proof]
 
-    F --> G{Circuit Checks}
-    G --> G1[Equation Hash == On-chain Hash]
-    G --> G2[Secret is Root of Equation]
-    G --> G3[isKYCed == true]
-    G --> G4[Recompute Nullifier == Given Nullifier]
+    G --> H{Circuit Checks}
+    H --> H1[Equation Hash == On-chain Hash]
+    H --> H2[poseidon2(secret) is Root of Equation]
+    H --> H3[isKYCed == true]
+    H --> H4[Recompute Nullifier == Given Nullifier]
 
-    G1 --> H[Proof Generated]
-    G2 --> H
-    G3 --> H
-    G4 --> H
+    H1 --> I[Proof Generated]
+    H2 --> I
+    H3 --> I
+    H4 --> I
 
-    H --> I[Prover Org Sends Nullifier and Proof to Verifier Org]
-    I --> J{Nullifier Already Used?}
-    J -- Yes --> K[Verification Already Done]
-    J -- No --> L[On-chain Proof Verification]
+    I --> J[Prover Org Sends Nullifier and Proof to Verifier Org]
+    J --> K{Nullifier Already Used?}
+    K -- Yes --> L[Verification Already Done]
+    K -- No --> M[On-chain Proof Verification]
 
-    L --> M{Proof Valid?}
-    M -- No --> N[Reject Verification]
-    M -- Yes --> O[Cache Nullifier to Prevent Reverification]
-    O --> P[Verification Successful]
+    M --> N{Proof Valid?}
+    N -- No --> O[Reject Verification]
+    N -- Yes --> P[Cache Nullifier to Prevent Reverification]
+    P --> Q[Verification Successful]
 
-    K --> E1[End]
-    N --> E1
-    P --> E1
+    L --> R[End]
+    O --> R
+    Q --> R
 ```
 
 ## 🛠️ Installation & Setup
 
 ### Prerequisites
 
--   [Noir](https://noir-lang.org/) (latest version)
--   [Node.js](https://nodejs.org/) 18+
--   Git
+- [Noir](https://noir-lang.org/) (latest version)
+- [Node.js](https://nodejs.org/) 18+
+- Git
 
 ### Installation
 
@@ -173,36 +175,36 @@ flowchart TD
 
 ## 🔧 Circuit Parameters
 
-| Parameter         | Type           | Description                                     |
-| ----------------- | -------------- | ----------------------------------------------- |
-| `polynomial_hash` | `pub Field`    | On-chain polynomial commitment for user's batch |
-| `nullifier`       | `pub Field`    | Verification cache identifier                   |
-| `verifier_key`    | `pub Field`    | Verification context                            |
-| `secret`          | `Field`        | Private member identifier                       |
-| `isKYCed`         | `bool`         | KYC compliance status                           |
-| `polynomial`      | `[Field; 129]` | Batch-specific membership polynomial            |
+| Parameter         | Type           | Description                                                   |
+| ----------------- | -------------- | ------------------------------------------------------------- |
+| `polynomial_hash` | `pub Field`    | On-chain polynomial commitment for user's batch               |
+| `nullifier`       | `pub Field`    | Verification cache identifier                                 |
+| `verifier_key`    | `pub Field`    | Verification context                                          |
+| `secret`          | `Field`        | Private member identifier (circuit derives Poseidon2(secret)) |
+| `isKYCed`         | `bool`         | KYC compliance status                                         |
+| `polynomial`      | `[Field; 129]` | Batch-specific membership polynomial                          |
 
 ### Security Constraints
 
--   **Polynomial Degree**: Maximum 128 coefficients per batch
--   **Batch Scaling**: Unlimited total members across multiple batches
--   **Hash Security**: Poseidon2 with 254-bit field elements
--   **Nullifier Uniqueness**: Deterministic per (secret, verifier_key) pair for verification caching
--   **KYC Enforcement**: Cryptographic compliance verification
+- **Polynomial Degree**: Maximum 128 coefficients per batch
+- **Batch Scaling**: Unlimited total members across multiple batches
+- **Hash Security**: Poseidon2 with 254-bit field elements
+- **Nullifier Uniqueness**: Deterministic per (Poseidon2(secret), verifier_key) pair for verification caching
+- **KYC Enforcement**: Cryptographic compliance verification
 
 ## 🔐 Security Considerations
 
 ### Privacy Guarantees
 
--   **Zero-Knowledge**: No membership information is revealed
--   **Unlinkability**: Proofs cannot be linked to specific users
--   **Forward Secrecy**: Past proofs remain valid after member removal
+- **Zero-Knowledge**: No membership information is revealed
+- **Unlinkability**: Proofs cannot be linked to specific users
+- **Forward Secrecy**: Past proofs remain valid after member removal
 
 ### Attack Resistance
 
--   **Verification Caching**: Nullifiers prevent redundant verification overhead
--   **Polynomial Integrity**: Hash commitments ensure data authenticity
--   **KYC Bypass Prevention**: Cryptographic enforcement of compliance
+- **Verification Caching**: Nullifiers prevent redundant verification overhead
+- **Polynomial Integrity**: Hash commitments ensure data authenticity
+- **KYC Bypass Prevention**: Cryptographic enforcement of compliance
 
 ### Audit Recommendations
 
@@ -221,10 +223,10 @@ flowchart TD
 
 ### Development Guidelines
 
--   Follow Noir coding standards
--   Add comprehensive tests for new features
--   Ensure circuit constraints are mathematically sound
--   Document security assumptions
+- Follow Noir coding standards
+- Add comprehensive tests for new features
+- Ensure circuit constraints are mathematically sound
+- Document security assumptions
 
 ## 📄 License
 
@@ -234,9 +236,9 @@ MIT
 
 For technical support or questions:
 
--   Open an issue in the repository
--   Contact the development team
--   Review the [documentation](../../README.md)
+- Open an issue in the repository
+- Contact the development team
+- Review the [documentation](../../README.md)
 
 ---
 

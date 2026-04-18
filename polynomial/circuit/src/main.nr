@@ -10,17 +10,19 @@ fn main(
     isKYCed: bool,
     polynomial: [Field; MAX_POLY_DEGREE + 1],
 ) {
+    let hashed_secret = poseidon2::Poseidon2::hash([secret], 1);
+
     // 1. Verify polynomial integrity
     let computed_polynomial_hash = poseidon2::Poseidon2::hash(polynomial, MAX_POLY_DEGREE + 1);
     assert(computed_polynomial_hash == polynomial_hash, "Polynomial hash mismatch");
 
-    // 2. Evaluate polynomial P(secret) - CORRECTED
+    // 2. Evaluate polynomial P(hashed_secret)
     let mut result = 0;
-    let mut secret_power = 1; // secret^0 = 1
+    let mut secret_power = 1; // hashed_secret^0 = 1
     
     for i in 0..MAX_POLY_DEGREE + 1 {
         result += polynomial[i] * secret_power;
-        secret_power *= secret; // Update to next power: secret^(i+1)
+        secret_power *= hashed_secret; // Update to next power: hashed_secret^(i+1)
     }
 
     // 3. Verify polynomial evaluates to zero (membership proof)
@@ -30,6 +32,6 @@ fn main(
     assert(isKYCed == true, "KYC verification required");
 
     // 5. Generate and verify nullifier (prevent double-use)
-    let computed_nullifier = poseidon2::Poseidon2::hash([secret, verifier_key], 2);
+    let computed_nullifier = poseidon2::Poseidon2::hash([hashed_secret, verifier_key], 2);
     assert(computed_nullifier == nullifier, "Nullifier mismatch");
 }

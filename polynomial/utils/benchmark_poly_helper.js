@@ -59,12 +59,13 @@ function addSecretsToBatches(
         // Try to fit in existing batch
         for (let i = 0; i < currentRoots.length; i++) {
             if (currentRoots[i].length < MAX_POLY_DEGREE) {
-                currentRoots[i].push(secret)
+                const rootValue = realPoseidon2Hash([secret])
+                currentRoots[i].push(rootValue)
 
                 // Efficiently update the polynomial by adding one root
-                currentBatches[i] = addRoot(currentBatches[i], secret)
+                currentBatches[i] = addRoot(currentBatches[i], rootValue)
 
-                userMap.set(secret.toString(), i) // Track which batch this user belongs to
+                userMap.set(secret.toString(), i) // Track which batch this user belongs to (key stays as raw secret)
                 inserted = true
                 break
             }
@@ -72,16 +73,17 @@ function addSecretsToBatches(
 
         // If no space, create new batch
         if (!inserted) {
-            const newBatchRoots = [secret]
+            const rootValue = realPoseidon2Hash([secret])
+            const newBatchRoots = [rootValue]
 
             // Start with polynomial P(x) = 1 (empty roots)
             // Then add the first root
             let newBatchPoly = [1n]
-            newBatchPoly = addRoot(newBatchPoly, secret)
+            newBatchPoly = addRoot(newBatchPoly, rootValue)
 
             currentRoots.push(newBatchRoots)
             currentBatches.push(newBatchPoly)
-            userMap.set(secret.toString(), currentRoots.length - 1)
+            userMap.set(secret.toString(), currentRoots.length - 1) // key stays as raw secret
         }
     }
 
@@ -139,8 +141,9 @@ function generateProverToml(batchPoly, secret, verifierKey) {
     // Hash polynomial
     const polynomialHash = realPoseidon2Hash(paddedPoly)
 
-    // Generate nullifier
-    const nullifier = realPoseidon2Hash([secret, verifierKey])
+    // Generate nullifier: poseidon2(poseidon2(secret), verifierKey) — matches circuit
+    const hashedSecret = realPoseidon2Hash([secret])
+    const nullifier = realPoseidon2Hash([hashedSecret, verifierKey])
 
     const proverToml = `isKYCed = true
 nullifier = "${nullifier}"

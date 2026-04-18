@@ -101,8 +101,9 @@ async function generateTestData() {
     const secret = hashToField(TEST_CONFIG.userEmail + TEST_CONFIG.salt)
     console.log(`Secret (from ${TEST_CONFIG.userEmail}): ${secret}`)
 
-    // 2. Generate polynomial with secret as root
-    const testRoots = [...TEST_CONFIG.roots, secret]
+    // 2. Generate polynomial with hashed_secret as root (matches circuit)
+    const hashedSecret = realPoseidon2Hash([secret])
+    const testRoots = [...TEST_CONFIG.roots.map(r => realPoseidon2Hash([r])), hashedSecret]
     const polynomial = interpolatePolynomial(testRoots)
     console.log(`Polynomial degree: ${polynomial.length - 1}`)
 
@@ -130,8 +131,9 @@ async function generateTestData() {
     // 5. Generate verifier key
     const verifierKey = hashToField(TEST_CONFIG.verifierKey)
 
-    // 6. Generate REAL nullifier using Poseidon2
-    const nullifier = realPoseidon2Hash([secret, verifierKey])
+    // 6. Generate REAL nullifier using Poseidon2: poseidon2(poseidon2(secret), verifierKey)
+    const hashedSecretForNullifier = realPoseidon2Hash([secret])
+    const nullifier = realPoseidon2Hash([hashedSecretForNullifier, verifierKey])
     console.log(`Nullifier (Poseidon2): ${nullifier}`)
 
     const proverToml = `isKYCed = ${TEST_CONFIG.isKYCed}
@@ -167,19 +169,23 @@ function testPolynomialEvaluation(polynomial, secret) {
 async function validateCircuitInputs(testData) {
     console.log("\n🔍 Validating circuit inputs...")
 
+    // Evaluate polynomial at hashed_secret (matches circuit behaviour)
+    const hs = realPoseidon2Hash([testData.secret])
     const evaluation = testPolynomialEvaluation(
         testData.polynomial,
-        testData.secret,
+        hs,
     )
-    console.log(`✓ Polynomial evaluation at secret: ${evaluation}`)
-    console.log(`✓ Secret is valid root: ${evaluation === 0n ? "✅" : "❌"}`)
+    console.log(`✓ Polynomial evaluation at hashed_secret: ${evaluation}`)
+    console.log(`✓ Hashed secret is valid root: ${evaluation === 0n ? "✅" : "❌"}`)
 
     const recomputedHash = realPoseidon2Hash(testData.polynomial)
     const hashMatch = recomputedHash === testData.polynomialHash
     console.log(`✓ Polynomial hash consistency: ${hashMatch ? "✅" : "❌"}`)
 
+    // Nullifier: poseidon2(poseidon2(secret), verifierKey) — matches circuit
+    const hs2 = realPoseidon2Hash([testData.secret])
     const recomputedNullifier = realPoseidon2Hash([
-        testData.secret,
+        hs2,
         testData.verifierKey,
     ])
     const nullifierMatch = recomputedNullifier === testData.nullifier
