@@ -55,4 +55,4 @@ The benchmarks measure and record the following metrics in the CSV results files
 
 The results of the experiments are stored in [IMT](../imt_results.csv) & [Polynomial](../polynomial_results.csv).
 
-The detailed visual comparison of the results, can be found in [Results Comparison](https://colab.research.google.com/drive/1xrnZ77GEwxYb1CBfvjTlgtyW7S46ivZ0?usp=sharing).
+The detailed visual comparison of the results, can be found in [Results Comparison](../IMT_vs_PEB.ipynb).
