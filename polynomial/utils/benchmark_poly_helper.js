@@ -177,7 +177,8 @@ function createStaticPolynomialBatches(allSecrets) {
         // Build polynomial from scratch for this chunk
         let poly = [1n]
         for (const secret of chunk) {
-            poly = addRoot(poly, secret)
+            const rootValue = realPoseidon2Hash([secret])
+            poly = addRoot(poly, rootValue)
             userMap.set(secret.toString(), batchIdx)
         }
         
