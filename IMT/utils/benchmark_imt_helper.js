@@ -1,56 +1,35 @@
 // IMT/utils/benchmark_imt_helper.js
 const {
-    IncrementalMerkleTree,
+    StaticMerkleTree,
     realPoseidon2Hash,
-} = require("./test_data_generator")
+} = require("./static_merkle_tree")
 
 /**
- * Incrementally adds new secrets to an existing IMT or creates a new one
- * @param {IncrementalMerkleTree | null} existingTree - The current tree (or null)
- * @param {bigint[]} newSecrets - Array of secrets to add
- * @returns {IncrementalMerkleTree} - The updated tree
+ * Creates a static SMT from scratch
+ * @param {bigint[]} allSecrets - Array of all secrets
+ * @returns {StaticMerkleTree} - The populated tree
  */
-function createIncrementalIMT(existingTree, newSecrets) {
-    const tree = existingTree || new IncrementalMerkleTree()
-
-    for (const secret of newSecrets) {
-        // Compute leaf hash from secret (mimics test_data_generator logic)
-        const leaf = realPoseidon2Hash([secret])
-        tree.insert(leaf)
-    }
-
-    return tree
+function createStaticSMT(allSecrets) {
+    return new StaticMerkleTree(allSecrets)
 }
 
 /**
- * Serializes the entire logic structure of the IMT to CSV for proper storage measurement.
- * Includes all leaves and all internal nodes currently stored in the map.
+ * Serializes the entire logic structure of the SMT to CSV for proper storage measurement.
+ * Includes all active leaves and all active internal nodes.
  * Format: level,index,hash_value
- * @param {IncrementalMerkleTree} tree
+ * @param {StaticMerkleTree} tree
  * @returns {string} CSV content
  */
-function serializeIMTtoCSV(tree) {
+function serializeSMTtoCSV(tree) {
     const lines = ["level,index,hash_value"]
 
-    // 1. Serialize leaves (Level 0)
-    // Accessing private 'leaves' via index since we don't have direct access if private
-    // But test_data_generator implementation shows 'leaves' is public property (this.leaves)
-    if (tree.leaves) {
-        tree.leaves.forEach((leaf, index) => {
-            if (leaf !== undefined) {
-                lines.push(`0,${index},${leaf.toString()}`)
+    tree.levels.forEach((levelNodes, level) => {
+        levelNodes.forEach((node, index) => {
+            if (node !== undefined) {
+                lines.push(`${level},${index},${node.toString()}`)
             }
         })
-    }
-
-    // 2. Serialize internal nodes
-    // The implementation uses a Map 'nodes' with key "level:index"
-    if (tree.nodes) {
-        for (const [key, value] of tree.nodes.entries()) {
-            const [level, index] = key.split(":")
-            lines.push(`${level},${index},${value.toString()}`)
-        }
-    }
+    })
 
     return lines.join("\n")
 }
@@ -68,8 +47,7 @@ function generateProverToml(tree, userIndex, secret, verifierKey) {
     const nullifier = realPoseidon2Hash([secret, verifierKey])
 
     // Format TOML
-    // Matches the format in test_data_generator.js
-    const proverToml = `# IMT Membership Proof
+    const proverToml = `# SMT Membership Proof
 merkle_root = "${merkleRoot}"
 nullifier = "${nullifier}"
 verifier_key = "${verifierKey}"
@@ -88,7 +66,8 @@ path_indices = [${pathIndices.map((p) => `"${p}"`).join(", ")}]
 }
 
 module.exports = {
-    createIncrementalIMT,
-    serializeIMTtoCSV,
+    createStaticSMT,
+    serializeIMTtoCSV: serializeSMTtoCSV,
     generateProverToml,
 }
+
