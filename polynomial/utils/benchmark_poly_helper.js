@@ -159,8 +159,42 @@ verifier_key = "${verifierKey}"`
     }
 }
 
+/**
+ * Creates static polynomial batches from scratch in O(N) time.
+ * @param {bigint[]} allSecrets - Array of all secrets
+ * @returns {object} { batches, batchRoots, userMap } - Populated state and user->batch map
+ */
+function createStaticPolynomialBatches(allSecrets) {
+    const batches = []
+    const batchRoots = []
+    const userMap = new Map()
+
+    const totalSecrets = allSecrets.length
+    for (let i = 0; i < totalSecrets; i += MAX_POLY_DEGREE) {
+        const chunk = allSecrets.slice(i, i + MAX_POLY_DEGREE)
+        const batchIdx = batches.length
+        
+        // Build polynomial from scratch for this chunk
+        let poly = [1n]
+        for (const secret of chunk) {
+            poly = addRoot(poly, secret)
+            userMap.set(secret.toString(), batchIdx)
+        }
+        
+        batches.push(poly)
+        batchRoots.push(chunk)
+    }
+
+    return {
+        batches,
+        batchRoots,
+        userMap,
+    }
+}
+
 module.exports = {
     addSecretsToBatches,
+    createStaticPolynomialBatches,
     serializePolynomialToCSV,
     serializeUserBatchMapToCSV,
     generateProverToml,

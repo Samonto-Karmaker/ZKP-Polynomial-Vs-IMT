@@ -22,7 +22,7 @@ const TARGET_COUNTS = specificCount ? [parseInt(specificCount)] : USER_COUNTS
 const SAMPLE_SIZE = 5 // Randomly sample 5 users for timing
 // Output Handling
 const suffix = isDryRun ? "_dryrun.csv" : ".csv"
-const IMT_CSV_FILE = `imt_results${suffix}`
+const SMT_CSV_FILE = `smt_results${suffix}`
 const POLY_CSV_FILE = `polynomial_results${suffix}`
 const USERS_DB_FILE = "users.csv"
 
@@ -30,12 +30,6 @@ const USERS_DB_FILE = "users.csv"
 const VERIFIER_KEY = "benchmark_vk_123"
 const FIELD_PRIME =
     21888242871839275222246405745257275088548364400416034343698204186575808495617n
-
-// State management
-let IMT_TREE = null
-let POLY_BATCHES = []
-let POLY_ROOTS = []
-let POLY_USER_MAP = new Map()
 
 // --- Utilities ---
 
@@ -143,9 +137,9 @@ async function runBenchmark() {
     log(`🚀 Starting Benchmark [Dry Run: ${isDryRun}]`)
 
     // Initialize results CSVs
-    if (!fs.existsSync(IMT_CSV_FILE)) {
+    if (!fs.existsSync(SMT_CSV_FILE)) {
         fs.writeFileSync(
-            IMT_CSV_FILE,
+            SMT_CSV_FILE,
             "user_count,proof_size_bytes,proof_gen_time_ms,vk_size_bytes,verification_time_ms,total_population_time_ms,avg_population_time_ms,total_structure_storage_bytes\n"
         )
     }
@@ -157,8 +151,6 @@ async function runBenchmark() {
     }
 
     let existingUsers = loadUsers()
-    let totalPopulationTimeIMT = 0
-    let totalPopulationTimePoly = 0
 
     // Install dependencies once
     log("Installing dependencies...")
@@ -168,43 +160,35 @@ async function runBenchmark() {
     for (const count of TARGET_COUNTS) {
         log(`\n=== Processing User Count: ${count} ===`)
 
-        // 1. Generate incremental users
+        // 1. Generate incremental users (reusing existing users)
         const newUsers = generateNewUsers(existingUsers, count)
         existingUsers = [...existingUsers, ...newUsers]
         saveUsers(existingUsers)
 
-        const newSecrets = newUsers.map((u) => u.secret)
         const allSecrets = existingUsers.slice(0, count).map((u) => u.secret)
 
-        // --- System 1: IMT ---
-        log(`[IMT] Populating tree...`)
-        const startIMT = process.hrtime.bigint()
-        IMT_TREE = imtHelper.createIncrementalIMT(IMT_TREE, newSecrets)
-        const endIMT = process.hrtime.bigint()
-        const popTimeIMT = Number(endIMT - startIMT) / 1_000_000
-        totalPopulationTimeIMT += popTimeIMT
+        // --- System 1: SMT ---
+        log(`[SMT] Populating tree...`)
+        const startSMT = process.hrtime.bigint()
+        const SMT_TREE = imtHelper.createStaticSMT(allSecrets)
+        const endSMT = process.hrtime.bigint()
+        const popTimeSMT = Number(endSMT - startSMT) / 1_000_000
 
         // Storage Measurement
-        const imtCsv = imtHelper.serializeIMTtoCSV(IMT_TREE)
-        const imtStorageFile = "temp_imt_storage.csv"
-        fs.writeFileSync(imtStorageFile, imtCsv)
-        const imtStorageSize = getFileSize(imtStorageFile)
+        const smtCsv = imtHelper.serializeIMTtoCSV(SMT_TREE)
+        const smtStorageFile = "temp_smt_storage.csv"
+        fs.writeFileSync(smtStorageFile, smtCsv)
+        const smtStorageSize = getFileSize(smtStorageFile)
 
         // --- System 2: Polynomial ---
         log(`[Poly] Populating batches...`)
         const startPoly = process.hrtime.bigint()
-        const polyState = polyHelper.addSecretsToBatches(
-            POLY_BATCHES,
-            POLY_ROOTS,
-            POLY_USER_MAP,
-            newSecrets
-        )
-        POLY_BATCHES = polyState.batches
-        POLY_ROOTS = polyState.batchRoots
-        POLY_USER_MAP = polyState.userMap
+        const polyState = polyHelper.createStaticPolynomialBatches(allSecrets)
+        const POLY_BATCHES = polyState.batches
+        const POLY_ROOTS = polyState.batchRoots
+        const POLY_USER_MAP = polyState.userMap
         const endPoly = process.hrtime.bigint()
         const popTimePoly = Number(endPoly - startPoly) / 1_000_000
-        totalPopulationTimePoly += popTimePoly
 
         // Storage Measurement
         const polyCoeffsCsv = polyHelper.serializePolynomialToCSV(POLY_BATCHES)
@@ -229,15 +213,15 @@ async function runBenchmark() {
 
         log(`Sampling ${sampleUsers.length} users for proofs...`)
 
-        // Measure IMT
-        let metricsIMT = await measureCircuit(
-            "IMT",
+        // Measure SMT
+        let metricsSMT = await measureCircuit(
+            "SMT",
             "./IMT",
             "b2b_membership_imt",
             sampleUsers,
             (user) =>
                 imtHelper.generateProverToml(
-                    IMT_TREE,
+                    SMT_TREE,
                     user.index,
                     user.secret,
                     hashToField(VERIFIER_KEY)
@@ -264,26 +248,26 @@ async function runBenchmark() {
 
         // Log Results
         appendResult(
-            IMT_CSV_FILE,
+            SMT_CSV_FILE,
             count,
-            metricsIMT,
+            metricsSMT,
             getFileSize("./IMT/circuit/target/vk"),
-            totalPopulationTimeIMT,
-            imtStorageSize
+            popTimeSMT,
+            smtStorageSize
         )
         appendResult(
             POLY_CSV_FILE,
             count,
             metricsPoly,
             getFileSize("./polynomial/circuit/target/vk"),
-            totalPopulationTimePoly,
+            popTimePoly,
             polyStorageSize
         )
 
         // Cleanup temp files if not keeping them
         if (!isDryRun) {
             try {
-                fs.unlinkSync(imtStorageFile)
+                fs.unlinkSync(smtStorageFile)
             } catch (e) {}
             try {
                 fs.unlinkSync(polyStorageFile)
