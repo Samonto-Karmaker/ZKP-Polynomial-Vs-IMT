@@ -74,7 +74,7 @@ The verifier then requests a proof from the issuer by supplying:
 - the credential identifier (`credential_id`)
 - a verifier-specific key (`verifier_key`)
 
-The verifier-specific key is used to generate an unlinkable nullifier, preventing proof reuse across different verifiers.
+The verifier-specific key scopes the resulting nullifier to this particular issuer-verifier relationship: the same credential produces a different nullifier for every distinct verifier, which prevents different verifiers from correlating that the same credential was used with each of them. Separately, within a single verifier's domain, the nullifier allows that verifier to detect and reject a duplicate submission of the same proof.
 
 #### 4. Proof Generation
 
@@ -154,16 +154,17 @@ Successful verification guarantees that:
 - the batch corresponds to the issuer's published commitment,
 - the credential is currently marked as licensed,
 - the issuer generated the proof using a valid batch member,
-- no credential secret or credential identifier has been disclosed.
+- no credential secret or batch polynomial has been disclosed to the verifier (the credential identifier itself is known to the verifier, as it was required to route the request).
 
 The verifier subsequently stores the received nullifier for the specific issuer-verifier relationship. Because the nullifier is derived from both the credential secret and the verifier-specific key, the same credential generates different nullifiers for different verifiers, preventing cross-verifier correlation while still enabling duplicate detection within a single verifier domain.
+
+---
 
 #### Privacy and Security Properties
 
 This protocol provides the following guarantees:
 
-- **Credential Privacy:** The credential secret never leaves the issuer and is never disclosed to the verifier.
-- **Batch Membership Assurance:** Verification proves membership in an issuer-committed batch without revealing which credential within the batch was used.
-- **Revocation-by-Batch Update:** Updating the committed polynomial allows the issuer to publish new credential rosters while maintaining a publicly auditable commitment history.
+- **Credential Privacy:** The credential secret and the batch polynomial never leave the issuer and are never disclosed to the verifier.
+- **Batch Membership Assurance:** Verification proves that the specified credential is genuinely a member of the issuer-committed batch, and that the issuer (who holds the full polynomial) generated the proof honestly — without disclosing the underlying secret or the polynomial coefficients to the verifier. Note: the `credential_id` itself is necessarily known to the verifier, since the holder must supply it to route the verification request; this protocol does not hide *which* credential is being checked, only the secret value underlying it.
 - **Verifier-Specific Unlinkability:** Different verifiers observe different nullifiers for the same credential, preventing cross-organizational tracking.
 - **Public Auditability:** The on-chain event log provides an immutable reference for validating issuer commitments and preventing proof generation against uncommitted credential sets.
